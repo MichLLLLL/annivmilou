@@ -10,8 +10,8 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    cursor: none;
     font-family: monospace;
+    cursor: none;
 }
 
 body {
@@ -21,8 +21,8 @@ body {
     overflow: hidden;
 }
 
-/* ÉCRANS GÉNÉRAUX */
-.center-text {
+/* ÉCRAN TEXTE */
+.center {
     position: fixed;
     inset: 0;
     display: flex;
@@ -37,13 +37,15 @@ body {
     top: 20px;
     right: 20px;
     font-size: 24px;
-    z-index: 100;
+    display: none;
+    z-index: 10;
 }
 
 #target {
     position: absolute;
     width: 100px;
     height: 100px;
+    display: none;
 }
 
 #target img {
@@ -56,8 +58,9 @@ body {
     width: 5px;
     height: 5px;
     background: white;
-    pointer-events: none;
     transform: translate(-50%, -50%);
+    pointer-events: none;
+    display: none;
     z-index: 1000;
 }
 
@@ -70,15 +73,15 @@ video {
     object-fit: cover;
 }
 
-/* IMAGE + FLIP */
+/* CARTE */
 #card-container {
     position: fixed;
     inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
     perspective: 1000px;
+    cursor: pointer;
 }
 
 #card {
@@ -93,25 +96,25 @@ video {
     transform: rotateY(180deg) skewY(3deg);
 }
 
-.card-face {
+.face {
     position: absolute;
     inset: 0;
     backface-visibility: hidden;
 }
 
-#card-front img {
+#front img {
     width: 100%;
     height: 100%;
 }
 
-#card-back {
+#back {
     background: black;
     color: white;
     display: flex;
     align-items: center;
     justify-content: center;
-    transform: rotateY(180deg);
     font-size: 24px;
+    transform: rotateY(180deg);
     cursor: pointer;
 }
 </style>
@@ -119,65 +122,67 @@ video {
 
 <body>
 
-<div id="screen" class="center-text">Mets en fullscreen stp brozer</div>
+<div id="screen" class="center">Mets en fullscreen stp brozer</div>
 
-<div id="score" style="display:none">0 / 10</div>
-<div id="crosshair" style="display:none"></div>
+<div id="score">0 / 10</div>
+<div id="crosshair"></div>
 
-<div id="target" style="display:none">
+<div id="target">
     <img src="celestin.png">
 </div>
 
 <audio id="gunshot" src="gunshot.wav"></audio>
 
 <script>
+/* ===== ÉTAT GLOBAL ===== */
+let score = 0;
+let misses = 0;
+let warned = false;
+let awaitingWord = false;
+let gameEnded = false;
+let inputBuffer = "";
+let moveInterval = 1500;
+let intervalId;
+
+/* ===== ÉLÉMENTS ===== */
 const screen = document.getElementById("screen");
 const target = document.getElementById("target");
 const scoreDisplay = document.getElementById("score");
 const crosshair = document.getElementById("crosshair");
 const gunshot = document.getElementById("gunshot");
 
-let score = 0;
-let misses = 0;
-let warned = false;
-let moveInterval = 1500;
-let intervalId;
-let inputBuffer = "";
-
-/* FULLSCREEN */
+/* ===== FULLSCREEN ===== */
 document.addEventListener("keydown", e => {
     if (e.key === "F11") {
         document.body.style.background = "black";
         document.body.style.color = "white";
         screen.textContent = "allez c'est parti";
-
-        setTimeout(startCountdown, 1000);
+        setTimeout(countdown, 1000);
     }
 });
 
-/* DÉCOMPTE */
-function startCountdown() {
-    let count = 3;
-    screen.textContent = count;
+/* ===== DÉCOMPTE ===== */
+function countdown() {
+    let c = 3;
+    screen.textContent = c;
 
-    const timer = setInterval(() => {
-        count--;
-        if (count === 0) {
-            clearInterval(timer);
+    const t = setInterval(() => {
+        c--;
+        if (c === 0) {
+            clearInterval(t);
             screen.style.display = "none";
             startGame();
         } else {
-            screen.textContent = count;
+            screen.textContent = c;
         }
     }, 1000);
 }
 
-/* JEU */
+/* ===== JEU ===== */
 function startGame() {
     scoreDisplay.style.display = "block";
     crosshair.style.display = "block";
     target.style.display = "block";
-
     moveTarget();
     startMoving();
 }
@@ -194,72 +199,92 @@ function startMoving() {
     intervalId = setInterval(moveTarget, moveInterval);
 }
 
-/* TIR */
-document.addEventListener("click", () => {
+/* ===== TIR ===== */
+function shootHandler() {
+    if (gameEnded || awaitingWord) return;
+
     gunshot.currentTime = 0;
     gunshot.play();
     misses++;
     checkMisses();
-});
+}
+
+document.addEventListener("click", shootHandler);
 
 target.addEventListener("click", e => {
     e.stopPropagation();
+    if (gameEnded || awaitingWord) return;
+
     gunshot.currentTime = 0;
     gunshot.play();
 
     score++;
-    scoreDisplay.textContent = score + " / 10";
     misses = 0;
+    scoreDisplay.textContent = score + " / 10";
 
     moveInterval = Math.max(300, moveInterval - 100);
     startMoving();
     moveTarget();
 });
 
+/* ===== RATÉS ===== */
 function checkMisses() {
+    if (gameEnded) return;
+
     if (misses > 4 && !warned) {
         alert("Bah alors on est nul ?");
         warned = true;
     }
 
-    if (misses >= 10) {
+    if (misses >= 10 && !awaitingWord) {
+        awaitingWord = true;
         alert("Tape un mot au pif sur le clavier et fais entrée");
         document.addEventListener("keydown", wordInput);
     }
 }
 
-/* MOT */
+/* ===== MOT ===== */
 function wordInput(e) {
+    if (!awaitingWord) return;
+
     if (e.key === "Enter") {
         if (inputBuffer.toLowerCase() === "bite") {
-            document.removeEventListener("keydown", wordInput);
+            awaitingWord = false;
+            gameEnded = true;
+            inputBuffer = "";
             launchVideo();
+        } else {
+            inputBuffer = "";
         }
-        inputBuffer = "";
     } else if (e.key.length === 1) {
         inputBuffer += e.key;
     }
 }
 
-/* VIDÉO */
+/* ===== VIDÉO ===== */
 function launchVideo() {
-    document.body.innerHTML = "";
+    clearInterval(intervalId);
+
+    target.style.display = "none";
+    scoreDisplay.style.display = "none";
+    crosshair.style.display = "none";
+
     const video = document.createElement("video");
     video.src = "vid.mp4";
     video.autoplay = true;
-    video.playsInline = true;
     video.controls = false;
+    video.playsInline = true;
+
     document.body.appendChild(video);
 
-    video.onended = () => {
-        document.body.innerHTML = "";
+    video.addEventListener("ended", () => {
+        video.remove();
         document.body.style.background = "black";
-
         setTimeout(showCard, 2000);
-    };
+    });
 }
 
-/* CARTE */
+/* ===== CARTE ===== */
 function showCard() {
     document.body.style.cursor = "pointer";
 
@@ -270,13 +295,13 @@ function showCard() {
     card.id = "card";
 
     const front = document.createElement("div");
-    front.className = "card-face";
-    front.id = "card-front";
+    front.className = "face";
+    front.id = "front";
     front.innerHTML = `<img src="val.jpg">`;
 
     const back = document.createElement("div");
-    back.className = "card-face";
-    back.id = "card-back";
+    back.className = "face";
+    back.id = "back";
     back.textContent = "ABC1234";
 
     card.append(front, back);
@@ -302,7 +327,7 @@ function showCard() {
     };
 }
 
-/* CROSSHAIR */
+/* ===== CROSSHAIR ===== */
 document.addEventListener("mousemove", e => {
     crosshair.style.left = e.clientX + "px";
     crosshair.style.top = e.clientY + "px";
