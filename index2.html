@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Jeu</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    cursor: none;
+    font-family: monospace;
+}
+
+body {
+    background: white;
+    color: black;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* ÉCRANS GÉNÉRAUX */
+.center-text {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+}
+
+/* JEU */
+#score {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    font-size: 24px;
+    z-index: 100;
+}
+
+#target {
+    position: absolute;
+    width: 100px;
+    height: 100px;
+}
+
+#target img {
+    width: 100%;
+    height: 100%;
+}
+
+#crosshair {
+    position: fixed;
+    width: 5px;
+    height: 5px;
+    background: white;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+}
+
+/* VIDÉO */
+video {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* IMAGE + FLIP */
+#card-container {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    perspective: 1000px;
+}
+
+#card {
+    width: 300px;
+    height: 300px;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.8s;
+}
+
+#card.flip {
+    transform: rotateY(180deg) skewY(3deg);
+}
+
+.card-face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+}
+
+#card-front img {
+    width: 100%;
+    height: 100%;
+}
+
+#card-back {
+    background: black;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: rotateY(180deg);
+    font-size: 24px;
+    cursor: pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div id="screen" class="center-text">Mets en fullscreen stp brozer</div>
+
+<div id="score" style="display:none">0 / 10</div>
+<div id="crosshair" style="display:none"></div>
+
+<div id="target" style="display:none">
+    <img src="celestin.png">
+</div>
+
+<audio id="gunshot" src="gunshot.wav"></audio>
+
+<script>
+const screen = document.getElementById("screen");
+const target = document.getElementById("target");
+const scoreDisplay = document.getElementById("score");
+const crosshair = document.getElementById("crosshair");
+const gunshot = document.getElementById("gunshot");
+
+let score = 0;
+let misses = 0;
+let warned = false;
+let moveInterval = 1500;
+let intervalId;
+let inputBuffer = "";
+
+/* FULLSCREEN */
+document.addEventListener("keydown", e => {
+    if (e.key === "F11") {
+        document.body.style.background = "black";
+        document.body.style.color = "white";
+        screen.textContent = "allez c'est parti";
+
+        setTimeout(startCountdown, 1000);
+    }
+});
+
+/* DÉCOMPTE */
+function startCountdown() {
+    let count = 3;
+    screen.textContent = count;
+
+    const timer = setInterval(() => {
+        count--;
+        if (count === 0) {
+            clearInterval(timer);
+            screen.style.display = "none";
+            startGame();
+        } else {
+            screen.textContent = count;
+        }
+    }, 1000);
+}
+
+/* JEU */
+function startGame() {
+    scoreDisplay.style.display = "block";
+    crosshair.style.display = "block";
+    target.style.display = "block";
+
+    moveTarget();
+    startMoving();
+}
+
+function moveTarget() {
+    const maxX = window.innerWidth - 100;
+    const maxY = window.innerHeight - 100;
+    target.style.left = Math.random() * maxX + "px";
+    target.style.top = Math.random() * maxY + "px";
+}
+
+function startMoving() {
+    clearInterval(intervalId);
+    intervalId = setInterval(moveTarget, moveInterval);
+}
+
+/* TIR */
+document.addEventListener("click", () => {
+    gunshot.currentTime = 0;
+    gunshot.play();
+    misses++;
+    checkMisses();
+});
+
+target.addEventListener("click", e => {
+    e.stopPropagation();
+    gunshot.currentTime = 0;
+    gunshot.play();
+
+    score++;
+    scoreDisplay.textContent = score + " / 10";
+    misses = 0;
+
+    moveInterval = Math.max(300, moveInterval - 100);
+    startMoving();
+    moveTarget();
+});
+
+function checkMisses() {
+    if (misses > 4 && !warned) {
+        alert("Bah alors on est nul ?");
+        warned = true;
+    }
+
+    if (misses >= 10) {
+        alert("Tape un mot au pif sur le clavier et fais entrée");
+        document.addEventListener("keydown", wordInput);
+    }
+}
+
+/* MOT */
+function wordInput(e) {
+    if (e.key === "Enter") {
+        if (inputBuffer.toLowerCase() === "bite") {
+            document.removeEventListener("keydown", wordInput);
+            launchVideo();
+        }
+        inputBuffer = "";
+    } else if (e.key.length === 1) {
+        inputBuffer += e.key;
+    }
+}
+
+/* VIDÉO */
+function launchVideo() {
+    document.body.innerHTML = "";
+    const video = document.createElement("video");
+    video.src = "vid.mp4";
+    video.autoplay = true;
+    video.playsInline = true;
+    video.controls = false;
+    document.body.appendChild(video);
+
+    video.onended = () => {
+        document.body.innerHTML = "";
+        document.body.style.background = "black";
+
+        setTimeout(showCard, 2000);
+    };
+}
+
+/* CARTE */
+function showCard() {
+    document.body.style.cursor = "pointer";
+
+    const container = document.createElement("div");
+    container.id = "card-container";
+
+    const card = document.createElement("div");
+    card.id = "card";
+
+    const front = document.createElement("div");
+    front.className = "card-face";
+    front.id = "card-front";
+    front.innerHTML = `<img src="val.jpg">`;
+
+    const back = document.createElement("div");
+    back.className = "card-face";
+    back.id = "card-back";
+    back.textContent = "ABC1234";
+
+    card.append(front, back);
+    container.appendChild(card);
+    document.body.appendChild(container);
+
+    container.onclick = () => card.classList.add("flip");
+
+    back.onclick = e => {
+        e.stopPropagation();
+        navigator.clipboard.writeText("ABC1234");
+        alert("Bon anniversaire");
+        [
+            "vieux frère",
+            "je t'aime",
+            "on en a vu des choses toi et moi",
+            "bonjour ?",
+            "bonjour",
+            "allez va activer ton code",
+            "azertyazerty",
+            "à tout"
+        ].forEach(msg => alert(msg));
+    };
+}
+
+/* CROSSHAIR */
+document.addEventListener("mousemove", e => {
+    crosshair.style.left = e.clientX + "px";
+    crosshair.style.top = e.clientY + "px";
+});
+</script>
+
+</body>
+</html>
