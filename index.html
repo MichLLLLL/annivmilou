@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jeu de tir</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            cursor: none;
+        }
+
+        body {
+            background-color: black;
+            color: white;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            position: relative;
+        }
+
+        #score {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            font-size: 32px;
+            font-weight: bold;
+            z-index: 100;
+        }
+
+        #target {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            transition: none;
+        }
+
+        #target img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        #crosshair {
+            position: fixed;
+            width: 30px;
+            height: 30px;
+            border: 2px solid white;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 1000;
+            transform: translate(-50%, -50%);
+        }
+
+        #crosshair::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 2px;
+            height: 100%;
+            background: white;
+            transform: translate(-50%, -50%);
+        }
+
+        #crosshair::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 100%;
+            height: 2px;
+            background: white;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+<body>
+    <div id="score">0 / 10</div>
+    <div id="crosshair"></div>
+    
+    <div id="target">
+        <img src="celestin.png" alt="Cible">
+    </div>
+
+    <audio id="gunshot">
+        <source src="gunshot.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+        const target = document.getElementById('target');
+        const scoreDisplay = document.getElementById('score');
+        const crosshair = document.getElementById('crosshair');
+        const gunshotSound = document.getElementById('gunshot');
+        
+        let score = 0;
+        let moveInterval = 1500;
+        let intervalId;
+
+        function getRandomPosition() {
+            const maxLeft = 100 - (target.offsetWidth / window.innerWidth * 100);
+            const maxTop = 100 - (target.offsetHeight / window.innerHeight * 100);
+            
+            const randomLeft = Math.random() * maxLeft;
+            const randomTop = Math.random() * maxTop;
+            
+            return { left: randomLeft, top: randomTop };
+        }
+
+        function moveTarget() {
+            const pos = getRandomPosition();
+            target.style.left = pos.left + 'vw';
+            target.style.top = pos.top + 'vh';
+        }
+
+        function startMoving() {
+            if (intervalId) clearInterval(intervalId);
+            intervalId = setInterval(moveTarget, moveInterval);
+        }
+
+        target.addEventListener('click', (e) => {
+            e.stopPropagation();
+            
+            gunshotSound.currentTime = 0;
+            gunshotSound.play();
+            
+            score++;
+            scoreDisplay.textContent = score + ' / 10';
+            
+            if (score < 10) {
+                moveInterval = Math.max(300, moveInterval - 100);
+                startMoving();
+                moveTarget();
+            } else {
+                clearInterval(intervalId);
+                alert('Bravo ! Vous avez gagné !');
+            }
+        });
+
+        document.addEventListener('click', () => {
+            gunshotSound.currentTime = 0;
+            gunshotSound.play();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            crosshair.style.left = e.clientX + 'px';
+            crosshair.style.top = e.clientY + 'px';
+        });
+
+        moveTarget();
+        startMoving();
+    </script>
+</body>
+</html>
